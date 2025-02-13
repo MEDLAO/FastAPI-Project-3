@@ -1,61 +1,78 @@
-from fastapi import FastAPI, HTTPException
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.chrome.options import Options
-import time
+import os
+import yt_dlp
+from fastapi import FastAPI, HTTPException, Header, Depends, Request
+from pydantic import BaseModel
+from starlette.responses import FileResponse, JSONResponse
+
+
+RAPIDAPI_SECRET = os.getenv("RAPIDAPI_SECRET")
+
 
 app = FastAPI()
 
 
-# Function to check if a WhatsApp number is valid
-def is_whatsapp_number(phone_number: str) -> bool:
-    """
-    Uses Selenium to check if a phone number is registered on WhatsApp.
-    """
+# Middleware for enforcing RapidAPI authentication
+@app.middleware("http")
+async def enforce_rapidapi_usage(request: Request, call_next):
+    rapidapi_proxy_secret = request.headers.get("X-RapidAPI-Proxy-Secret")
+    if rapidapi_proxy_secret != RAPIDAPI_SECRET:
+        return JSONResponse(status_code=403, content={"error": "Access restricted to RapidAPI users only."})
+    return await call_next(request)
+
+
+# Model for video info response
+class VideoInfo(BaseModel):
+    title: str
+    duration: int
+    uploader: str
+    thumbnail: str
+
+
+@app.get("/info", response_model=VideoInfo)
+def get_video_info(url: str):
     try:
-        # Configure Chrome options (headless mode for performance)
-        chrome_options = Options()
-        chrome_options.add_argument("--headless")
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--disable-dev-shm-usage")
-
-        # Set up WebDriver
-        service = Service(ChromeDriverManager().install())
-        driver = webdriver.Chrome(service=service, options=chrome_options)
-
-        # WhatsApp web URL to check the number
-        whatsapp_url = f"https://api.whatsapp.com/send?phone={phone_number}"
-        driver.get(whatsapp_url)
-
-        # Wait for page to load
-        time.sleep(3)
-
-        # Check if "Chat with" appears (means the number is valid)
-        page_source = driver.page_source
-        if "Click to Chat" in page_source:
-            driver.quit()
-            return True  # WhatsApp number is valid
-
-        driver.quit()
-        return False  # WhatsApp number is not valid
-
+        ydl_opts = {"quiet": True, "skip_download": True}
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+        return VideoInfo(
+            title=info["title"],
+            duration=info["duration"],
+            uploader=info["uploader"],
+            thumbnail=info["thumbnail"]
+        )
     except Exception as e:
-        return False  # Assume invalid if error occurs
+        raise HTTPException(status_code=400, detail=f"Error fetching video info: {str(e)}")
 
 
-# FastAPI endpoint
-@app.get("/validate/")
-def validate_whatsapp_number(phone_number: str):
-    """
-    API endpoint to check if a phone number is registered on WhatsApp.
-    """
-    if not phone_number.startswith("+"):
-        raise HTTPException(status_code=400, detail="Phone number must include country code (e.g., +14155552671)")
+@app.get("/download")
+def download_video(url: str):
+    try:
+        output_path = "downloads/%(title)s.%(ext)s"
+        ydl_opts = {"format": "bestvideo+bestaudio", "outtmpl": output_path}
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url)
+        filename = ydl.prepare_filename(info)
+        return FileResponse(filename, media_type="video/mp4", filename=os.path.basename(filename))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error downloading video: {str(e)}")
 
-    is_valid = is_whatsapp_number(phone_number)
 
-    return {
-        "phone_number": phone_number,
-        "is_whatsapp": is_valid
-    }
+@app.get("/convert")
+def convert_to_mp3(url: str):
+    try:
+        output_path = "downloads/%(title)s.%(ext)s"
+        ydl_opts = {
+            "format": "bestaudio",
+            "outtmpl": output_path,
+            "postprocessors": [{
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+                "preferredquality": "192",
+            }]
+        }
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url)
+        filename = ydl.prepare_filename(info).replace(".webm", ".mp3").replace(".m4a", ".mp3")
+        return FileResponse(filename, media_type="audio/mpeg", filename=os.path.basename(filename))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error converting video to MP3: {str(e)}")
