@@ -3,12 +3,29 @@ import yt_dlp
 from fastapi import FastAPI, HTTPException, Header, Depends, Request
 from pydantic import BaseModel
 from starlette.responses import FileResponse, JSONResponse
+from pyppeteer import launch
 
 
 RAPIDAPI_SECRET = os.getenv("RAPIDAPI_SECRET")
 
 
 app = FastAPI()
+
+
+# Function to extract fresh YouTube cookies dynamically
+async def get_youtube_cookies():
+    try:
+        browser = await launch(headless=True, args=["--no-sandbox"])
+        page = await browser.newPage()
+        await page.goto("https://www.youtube.com")
+
+        cookies = await page.cookies()
+        await browser.close()
+
+        # Convert cookies to yt-dlp format
+        return "; ".join([f"{c['name']}={c['value']}" for c in cookies])
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting cookies: {str(e)}")
 
 
 # Middleware for enforcing RapidAPI authentication
@@ -28,18 +45,23 @@ class VideoInfo(BaseModel):
     thumbnail: str
 
 
-@app.get("/info", response_model=VideoInfo)
-def get_video_info(url: str):
+@app.get("/info")
+async def get_video_info(url: str):
     try:
-        ydl_opts = {"quiet": True, "skip_download": True}
+        cookies = await get_youtube_cookies()  # Extract fresh cookies dynamically
+        ydl_opts = {
+            "quiet": True,
+            "skip_download": True,
+            "cookies": cookies
+        }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
-        return VideoInfo(
-            title=info["title"],
-            duration=info["duration"],
-            uploader=info["uploader"],
-            thumbnail=info["thumbnail"]
-        )
+        return {
+            "title": info["title"],
+            "duration": info["duration"],
+            "uploader": info["uploader"],
+            "thumbnail": info["thumbnail"]
+        }
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error fetching video info: {str(e)}")
 
