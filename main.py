@@ -14,7 +14,9 @@ def download_video(url: str):
     GET /download?url=https://www.youtube.com/watch?v=VIDEO_ID
     """
     try:
-        ydl_opts = {"format": "bestvideo+bestaudio"}
+        ydl_opts = {"format": "bestvideo+bestaudio",
+                    "cookies_from_browser": "chrome",
+                    }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)  # Download video
         return {"message": "Download complete", "title": info["title"]}
