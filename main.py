@@ -3,6 +3,7 @@ import os
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pytube import YouTube
+import urllib.request
 
 
 # Initialize FastAPI app
@@ -46,21 +47,22 @@ def get_video_info(url: str):
 @app.get("/download")
 def download_video(url: str):
     """
-    Downloads the highest quality MP4 video from YouTube.
-
-    Example usage:
-    GET /download?url=https://www.youtube.com/watch?v=VIDEO_ID
+    Downloads a YouTube video while bypassing YouTube's bot detection.
     """
     try:
+        # Set a custom User-Agent to prevent bot detection
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36"}
+        req = urllib.request.Request(url, headers=headers)
+        urllib.request.urlopen(req)  # Open URL to bypass detection
+
         video_caller = YouTube(url)  # Create YouTube object
         print(video_caller.title)  # Print video title
 
-        # Select highest resolution progressive MP4 stream (video + audio)
         video_caller.streams.filter(progressive=True, file_extension='mp4') \
             .order_by('resolution').desc().first().download()
 
         print("Done!!")  # Print confirmation when download is complete
-
         return {"message": "Download complete", "title": video_caller.title}
 
     except Exception as e:
