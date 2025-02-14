@@ -46,27 +46,25 @@ def get_video_info(url: str):
 @app.get("/download")
 def download_video(url: str):
     """
-    Stream and download the YouTube video in MP4 format.
-    The file is NOT saved to the server—it streams directly to the user.
+    Downloads the highest quality MP4 video from YouTube.
 
     Example usage:
     GET /download?url=https://www.youtube.com/watch?v=VIDEO_ID
     """
     try:
-        yt = YouTube(url)  # Initialize the YouTube object
-        video_stream = yt.streams.get_highest_resolution()  # Get the best video quality
+        video_caller = YouTube(url)  # Create YouTube object
+        print(video_caller.title)  # Print video title
 
-        # Create an in-memory buffer to store the video
-        video_bytes = io.BytesIO()
-        video_stream.stream_to_buffer(video_bytes)  # Download video into memory
-        video_bytes.seek(0)  # Reset buffer to start position
+        # Select highest resolution progressive MP4 stream (video + audio)
+        video_caller.streams.filter(progressive=True, file_extension='mp4') \
+            .order_by('resolution').desc().first().download()
 
-        # Send the file as a streaming response (without saving it)
-        return StreamingResponse(video_bytes, media_type="video/mp4",
-                                 headers={
-                                     "Content-Disposition": f"attachment; filename={yt.title}.mp4"})
+        print("Done!!")  # Print confirmation when download is complete
+
+        return {"message": "Download complete", "title": video_caller.title}
+
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error streaming video: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Error downloading video: {str(e)}")
 
 
 @app.get("/convert")
