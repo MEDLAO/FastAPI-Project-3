@@ -144,7 +144,7 @@ def fetch_html(url: str) -> str:
     # If JavaScript is required, use Playwright
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)  # Headless mode for speed
+            browser = p.chromium.launch(headless=False)  # Headless mode for speed
             page = browser.new_page()
             page.goto(url, timeout=15000)  # Load website with JavaScript
             html = page.content()  # Get fully rendered HTML
