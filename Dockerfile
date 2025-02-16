@@ -1,13 +1,13 @@
-# Use Python base image
+# Step 1: Use an official Python base image
 FROM python:3.10
 
-# Set working directory
+# Step 2: Set the working directory in the container
 WORKDIR /app
 
-# Copy application files
+# Step 3: Copy all application files into the container
 COPY . /app
 
-# Install system dependencies for Playwright
+# Step 4: Install system dependencies required for Playwright
 RUN apt-get update && apt-get install -y \
     libnss3 \
     libxss1 \
@@ -27,14 +27,18 @@ RUN apt-get update && apt-get install -y \
     fonts-liberation \
     && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies
+# Step 5: Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Playwright and its browsers
+# Step 6: Install Playwright and required browsers
 RUN pip install playwright && playwright install --with-deps
 
-# Expose FastAPI port
+# Step 7: Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
+
+# Step 8: Expose FastAPI port
 EXPOSE 8000
 
-# Start FastAPI
+# Step 9: Start FastAPI using the main.py file
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
