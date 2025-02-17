@@ -1,10 +1,10 @@
 # Use Python 3.10 as the base image
 FROM python:3.10
 
-# Set working directory
+# Set the working directory in the container
 WORKDIR /app
 
-# Copy all application files
+# Copy all application files into the container
 COPY . /app
 
 # Install system dependencies required for Playwright
@@ -25,8 +25,7 @@ RUN apt-get update && apt-get install -y \
     libxcursor1 \
     libxdamage1 \
     fonts-liberation \
-    xvfb && \
-    rm -rf /var/lib/apt/lists/*  # Corrected placement of `&&`
+    xvfb && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
@@ -37,7 +36,7 @@ RUN pip install playwright && playwright install --with-deps
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 ENV PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
-ENV DISPLAY=:99  # Set Virtual Display
+ENV DISPLAY=:99
 
 # Expose FastAPI port
 EXPOSE 8000
