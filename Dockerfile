@@ -25,8 +25,8 @@ RUN apt-get update && apt-get install -y \
     libxcursor1 \
     libxdamage1 \
     fonts-liberation \
-    xvfb \  # Virtual Display to Avoid Headless Detection
-    && rm -rf /var/lib/apt/lists/*
+    xvfb && \
+    rm -rf /var/lib/apt/lists/*  # Corrected placement of `&&`
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
@@ -37,7 +37,7 @@ RUN pip install playwright && playwright install --with-deps
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 ENV PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
-ENV DISPLAY=:99
+ENV DISPLAY=:99  # Set Virtual Display
 
 # Expose FastAPI port
 EXPOSE 8000
