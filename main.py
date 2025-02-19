@@ -5,10 +5,12 @@ from fastapi import FastAPI, File, UploadFile, HTTPException, Query
 import requests
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
+from playwright.async_api import async_playwright
 from pydantic import BaseModel
 import pdfplumber
 import docx
 from typing import List
+
 
 app = FastAPI()
 
@@ -120,7 +122,7 @@ async def extract_emails_from_file(file: UploadFile = File(...)):
     return {"filename": file.filename, "emails": emails}
 
 
-def fetch_html(url: str) -> str:
+async def fetch_html(url: str) -> str:
     """
     Fetch HTML content from a website.
     - Uses requests for static pages (Fastest).
@@ -130,7 +132,7 @@ def fetch_html(url: str) -> str:
 
     try:
         # Try using requests first (Fastest method)
-        response = requests.get(url, headers=headers, timeout=10)
+        response = requests.get(url, headers=headers, timeout=3)
 
         # If response is valid and has enough content, return it
         if response.status_code == 200 and len(response.text) > 500:
@@ -139,30 +141,30 @@ def fetch_html(url: str) -> str:
     except requests.RequestException:
         pass  # Ignore and switch to Playwright
 
-    # If JavaScript is required, use Playwright
+    # If JavaScript is required, use Playwright (ASYNC version)
     try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)  # ✅ Keep it headless
-            page = browser.new_page()
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            page = await browser.new_page()
 
             print(f"Fetching: {url}")  # Debugging output
 
             # Load the page and wait for JavaScript to execute
-            page.goto(url, wait_until="networkidle", timeout=30000)
+            await page.goto(url, wait_until="networkidle", timeout=5000)
 
             # Ensure dynamic elements are loaded
             try:
-                page.wait_for_selector("body", timeout=10000)  # Ensure page is visible
+                await page.wait_for_selector("body", timeout=5000)  # Ensure page is visible
             except:
                 print("Warning: Page body not found.")
 
             # Scroll down to force lazy-loaded content to load
-            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            page.wait_for_timeout(3000)  # Wait for content to load
+            await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            await page.wait_for_timeout(3000)  # Wait for content to load
 
             # Extract fully rendered HTML
-            html = page.content()
-            browser.close()
+            html = await page.content()
+            await browser.close()
             return html  # Return final dynamic HTML
 
     except Exception as e:
@@ -205,52 +207,41 @@ def extract_emails_from_html(html_content: str) -> List[str]:
     return valid_emails
 
 
-def fetch_emails_with_pseudo(url):
+async def fetch_emails_with_pseudo(url):
     """
     Extracts emails split between ::before, main text, and ::after pseudo-elements.
     """
     try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            page = browser.new_page()
-            page.goto(url, wait_until="networkidle", timeout=15000)  # Load the page
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            page = await browser.new_page()
+            await page.goto(url, wait_until="networkidle", timeout=5000)
+            await page.wait_for_timeout(3000)
 
-            # Wait a bit to allow JS-rendered content to appear
-            page.wait_for_timeout(3000)
-
-            # Select all elements on the page
-            all_elements = page.query_selector_all("*")
+            all_elements = await page.query_selector_all("*")
 
             emails = []
-
             for element in all_elements:
                 try:
-                    # Extract `::before` and `::after` pseudo-element content using JavaScript
-                    before_content = page.evaluate(
+                    before_content = await page.evaluate(
                         "(el) => window.getComputedStyle(el, '::before').content", element
                     )
-                    after_content = page.evaluate(
+                    after_content = await page.evaluate(
                         "(el) => window.getComputedStyle(el, '::after').content", element
                     )
+                    main_text = await element.inner_text()
 
-                    # Extract the main text inside the element
-                    main_text = element.inner_text().strip()
-
-                    # Clean extracted content
                     before_content = before_content.strip('"') if before_content not in ['none', '""'] else ''
                     after_content = after_content.strip('"') if after_content not in ['none', '""'] else ''
 
-                    # Combine all parts to form the full email
                     full_text = before_content + main_text + after_content
-
-                    # Extract and collect emails
-                    emails.extend(extract_emails_from_text(full_text))
+                    emails.extend(extract_emails(full_text))
 
                 except Exception:
                     pass  # Ignore elements that cause errors
 
-            browser.close()
-            return list(set(emails))  # Remove duplicates
+            await browser.close()
+            return list(set(emails))
 
     except Exception as e:
         print(f"[ERROR] Playwright failed: {e}")
@@ -258,29 +249,18 @@ def fetch_emails_with_pseudo(url):
 
 
 @app.get("/extract-emails-from-url")
-def extract_emails_from_url(
-        url: str = Query(..., title="Website URL",
-                         description="URL of the website to scrape emails from")
-):
+async def extract_emails_from_url(url: str = Query(...)):
     """
     API endpoint to extract emails from a given URL.
-    - Extracts emails from raw HTML (including <a href="mailto:..."> and text).
-    - Extracts emails from CSS pseudo-elements (::before, ::after).
-    - Returns a combined list of unique emails.
     """
-    # Fetch HTML content
-    html_content = fetch_html(url)
+    html_content = await fetch_html(url)
 
     if "Playwright failed" in html_content:
         raise HTTPException(status_code=500, detail=f"Error loading page: {html_content}")
 
-    # Extract emails from standard HTML and mailto links
-    standard_emails = extract_emails_from_html(html_content)
+    standard_emails = extract_emails(html_content)
+    pseudo_emails = await fetch_emails_with_pseudo(url)
 
-    # Extract emails hidden inside pseudo-elements (::before, ::after)
-    pseudo_emails = fetch_emails_with_pseudo(url)
-
-    # Merge and remove duplicates
     all_emails = list(set(standard_emails + pseudo_emails))
 
     if not all_emails:
