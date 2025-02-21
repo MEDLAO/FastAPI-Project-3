@@ -122,148 +122,112 @@ async def extract_emails_from_file(file: UploadFile = File(...)):
     return {"filename": file.filename, "emails": emails}
 
 
-async def fetch_html(url: str) -> str:
+# Try fetching emails using requests (Static scraping)
+def fetch_emails_static(url: str) -> List[str]:
     """
-    Fetch HTML content from a website.
-    - Uses requests for static pages (Fastest).
-    - Uses Playwright for JavaScript-heavy pages.
+    Fetches emails from a static webpage using requests and BeautifulSoup.
+    Returns emails if found, otherwise an empty list.
     """
-    headers = {"User-Agent": get_random_user_agent()}
+    headers = {"User-Agent": "Mozilla/5.0"}
 
     try:
-        # Try using requests first (Fastest method)
-        response = requests.get(url, headers=headers, timeout=3)
+        response = requests.get(url, headers=headers, timeout=5)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        print(f"[ERROR] Requests failed: {e}")
+        return []
 
-        # If response is valid and has enough content, return it
-        if response.status_code == 200 and len(response.text) > 500:
-            return response.text  # Return static HTML
-
-    except requests.RequestException:
-        pass  # Ignore and switch to Playwright
-
-    # If JavaScript is required, use Playwright (ASYNC version)
-    try:
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            page = await browser.new_page()
-
-            print(f"Fetching: {url}")  # Debugging output
-
-            # Load the page and wait for JavaScript to execute
-            await page.goto(url, wait_until="networkidle", timeout=5000)
-
-            # Ensure dynamic elements are loaded
-            try:
-                await page.wait_for_selector("body", timeout=5000)  # Ensure page is visible
-            except:
-                print("Warning: Page body not found.")
-
-            # Scroll down to force lazy-loaded content to load
-            await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            await page.wait_for_timeout(3000)  # Wait for content to load
-
-            # Extract fully rendered HTML
-            html = await page.content()
-            await browser.close()
-            return html  # Return final dynamic HTML
-
-    except Exception as e:
-        return f"Playwright failed: {e}"
-
-
-def extract_emails_from_html(html_content: str) -> List[str]:
-    """
-    Extract email addresses from raw HTML content.
-    - Extracts emails inside <a href="mailto:...">
-    - Extracts emails from visible text.
-    - Detects obfuscated emails (john[at]example[dot]com).
-    """
-    soup = BeautifulSoup(html_content, "lxml")
-
-    # Extract emails from <a href="mailto:...">
-    mailto_links = [
-        a["href"].replace("mailto:", "").strip()
-        for a in soup.find_all("a", href=True)
-        if a["href"].startswith("mailto:")
-    ]
-
-    # Extract visible text from HTML
+    # Extract emails from raw text
+    soup = BeautifulSoup(response.text, "html.parser")
     text = soup.get_text(separator=" ")
+    emails = extract_emails(text)
 
-    # Standard email regex
-    email_pattern = r"\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b"
-    regex_emails = re.findall(email_pattern, text)
+    if emails:
+        print(f"[INFO] Emails found (Static): {emails}")
 
-    # Obfuscated email pattern ([at], (at), {dot}, etc.)
-    obfuscated_pattern = r"\b([a-zA-Z0-9._%+-]+)\s*(?:\[|\(|{)?at(?:\]|\)|})?\s*([a-zA-Z0-9.-]+)\s*(?:\[|\(|{)?dot(?:\]|\)|})?\s*([a-zA-Z]{2,})\b"
-    obfuscated_emails = [f"{match[0]}@{match[1]}.{match[2]}" for match in re.findall(obfuscated_pattern, text)]
-
-    # Combine results and remove duplicates
-    emails = list(set(mailto_links + regex_emails + obfuscated_emails))
-
-    # Remove invalid entries (e.g., URLs or incorrect data)
-    valid_emails = [email for email in emails if "@" in email and "." in email.split("@")[-1]]
-
-    return valid_emails
+    return emails
 
 
-async def fetch_emails_with_pseudo(url):
+# If static fails, try Playwright (Dynamic scraping + pseudo-elements)
+async def fetch_emails_dynamic(url: str) -> List[str]:
     """
-    Extracts emails split between ::before, main text, and ::after pseudo-elements.
+    Fetches emails from a JavaScript-rendered page using Playwright.
+    If no emails are found, it also checks pseudo-elements (::before & ::after).
     """
     try:
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
+
+            print(f"[INFO] Fetching dynamic content: {url}")
             await page.goto(url, wait_until="networkidle", timeout=5000)
-            await page.wait_for_timeout(3000)
+            await page.wait_for_timeout(1000)  # Let the page render fully
 
-            all_elements = await page.query_selector_all("*")
+            # Extract emails from fully loaded page
+            page_content = await page.content()
+            emails = extract_emails(page_content)
 
-            emails = []
-            for element in all_elements:
-                try:
-                    before_content = await page.evaluate(
-                        "(el) => window.getComputedStyle(el, '::before').content", element
-                    )
-                    after_content = await page.evaluate(
-                        "(el) => window.getComputedStyle(el, '::after').content", element
-                    )
-                    main_text = await element.inner_text()
+            # If no emails, check pseudo-elements
+            if not emails:
+                elements = await page.query_selector_all("p, span, a, div")
+                for element in elements:
+                    try:
+                        before = await page.evaluate(
+                            "(el) => window.getComputedStyle(el, '::before').content", element
+                        )
+                        after = await page.evaluate(
+                            "(el) => window.getComputedStyle(el, '::after').content", element
+                        )
+                        main_text = await element.inner_text()
 
-                    before_content = before_content.strip('"') if before_content not in ['none', '""'] else ''
-                    after_content = after_content.strip('"') if after_content not in ['none', '""'] else ''
+                        # Remove extra quotes from pseudo-elements
+                        before = before.strip('"') if before not in ['none', '""'] else ''
+                        after = after.strip('"') if after not in ['none', '""'] else ''
 
-                    full_text = before_content + main_text + after_content
-                    emails.extend(extract_emails(full_text))
+                        full_text = before + main_text + after
+                        emails.extend(extract_emails(full_text))
 
-                except Exception:
-                    pass  # Ignore elements that cause errors
+                    except Exception:
+                        pass  # Ignore missing pseudo-elements
 
             await browser.close()
-            return list(set(emails))
+
+            # Remove duplicates and return
+            emails = list(set(emails))
+            if emails:
+                print(f"[INFO] Emails found (Dynamic): {emails}")
+            return emails
 
     except Exception as e:
         print(f"[ERROR] Playwright failed: {e}")
         return []
 
 
-@app.get("/extract-emails-from-url")
-async def extract_emails_from_url(url: str = Query(...)):
+# Main function: Try static first, then Playwright if needed
+async def fetch_emails(url: str) -> List[str]:
+    """
+    Orchestrates email extraction:
+    Tries static scraping (requests)
+    If static fails, tries dynamic scraping (Playwright)
+    """
+    emails = fetch_emails_static(url)
+
+    if emails:
+        return emails  # Found emails with static scraping
+
+    # If no emails, try Playwright (JavaScript + pseudo-elements)
+    return await fetch_emails_dynamic(url)
+
+
+@app.get("/extract-emails")
+async def extract_emails_from_url(url: str = Query(..., description="URL of the website")):
     """
     API endpoint to extract emails from a given URL.
+    Tries static scraping first, then dynamic if needed.
     """
-    html_content = await fetch_html(url)
+    emails = await fetch_emails(url)
 
-    if "Playwright failed" in html_content:
-        raise HTTPException(status_code=500, detail=f"Error loading page: {html_content}")
+    if not emails:
+        raise HTTPException(status_code=404, detail="No emails found.")
 
-    standard_emails = extract_emails(html_content)
-    pseudo_emails = await fetch_emails_with_pseudo(url)
-
-    all_emails = list(set(standard_emails + pseudo_emails))
-
-    if not all_emails:
-        raise HTTPException(status_code=404, detail="No emails found on the page.")
-
-    return {"url": url, "emails": all_emails}
+    return {"url": url, "emails": emails}
