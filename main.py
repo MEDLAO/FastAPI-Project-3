@@ -128,7 +128,7 @@ def fetch_emails_static(url: str) -> List[str]:
     Fetches emails from a static webpage using requests and BeautifulSoup.
     Returns emails if found, otherwise an empty list.
     """
-    headers = {"User-Agent": "Mozilla/5.0"}
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
 
     try:
         response = requests.get(url, headers=headers, timeout=5)
@@ -154,10 +154,13 @@ async def fetch_emails_dynamic(url: str) -> List[str]:
     Fetches emails from a JavaScript-rendered page using Playwright.
     If no emails are found, it also checks pseudo-elements (::before & ::after).
     """
+
     try:
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
-            page = await browser.new_page()
+            context = await browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+            page = await context.new_page()
 
             print(f"[INFO] Fetching dynamic content: {url}")
             await page.goto(url, wait_until="networkidle", timeout=5000)
