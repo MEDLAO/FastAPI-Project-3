@@ -151,8 +151,11 @@ def fetch_emails_static(url: str) -> List[str]:
 # If static fails, try Playwright (Dynamic scraping + pseudo-elements)
 async def fetch_emails_dynamic(url: str) -> List[str]:
     """
-    Fetches emails from a JavaScript-rendered page using Playwright.
-    If no emails are found, it also checks pseudo-elements (::before & ::after).
+    Fetches emails from any JavaScript-rendered webpage using Playwright.
+    - Extracts dynamically inserted emails.
+    - Ensures JavaScript execution is completed.
+    - Extracts from `mailto:`, specific elements, and page text.
+    - Checks pseudo-elements (::before & ::after) as a last resort.
     """
     try:
         async with async_playwright() as p:
@@ -160,14 +163,23 @@ async def fetch_emails_dynamic(url: str) -> List[str]:
             page = await browser.new_page()
 
             print(f"[INFO] Fetching dynamic content: {url}")
-            await page.goto(url, wait_until="networkidle", timeout=5000)
-            await page.wait_for_timeout(1000)  # Let the page fully render
+            await page.goto(url, wait_until="domcontentloaded", timeout=5000)
+            await page.wait_for_timeout(2000)  # Ensure JavaScript executes
 
-            # Extract text content after JavaScript execution
-            page_text = await page.evaluate("document.body.innerText")
-            emails = extract_emails(page_text)
+            emails = []
 
-            # If no emails found, check pseudo-elements (::before & ::after)
+            # 1. Extract emails from specific elements first
+            email_elements = await page.query_selector_all("a[href^='mailto'], span, p, div")
+            for element in email_elements:
+                text = await element.inner_text()
+                emails.extend(extract_emails(text))
+
+            # If no emails, extract entire page text
+            if not emails:
+                page_text = await page.evaluate("document.body.innerText")
+                emails = extract_emails(page_text)
+
+            # If still no emails, check pseudo-elements (::before & ::after)
             if not emails:
                 elements = await page.query_selector_all("p, span, a, div")
                 for element in elements:
@@ -180,7 +192,7 @@ async def fetch_emails_dynamic(url: str) -> List[str]:
                         )
                         main_text = await element.inner_text()
 
-                        # Remove unnecessary quotes around pseudo-elements
+                        # Remove unnecessary quotes
                         before = before.strip('"') if before not in ['none', '""'] else ''
                         after = after.strip('"') if after not in ['none', '""'] else ''
 
@@ -188,7 +200,7 @@ async def fetch_emails_dynamic(url: str) -> List[str]:
                         emails.extend(extract_emails(full_text))
 
                     except Exception:
-                        pass  # Ignore missing pseudo-elements
+                        pass  # Ignore elements without pseudo-elements
 
             await browser.close()
 
