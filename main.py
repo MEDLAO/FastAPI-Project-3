@@ -161,13 +161,13 @@ async def fetch_emails_dynamic(url: str) -> List[str]:
 
             print(f"[INFO] Fetching dynamic content: {url}")
             await page.goto(url, wait_until="networkidle", timeout=5000)
-            await page.wait_for_timeout(1000)  # Let the page render fully
+            await page.wait_for_timeout(1000)  # Let the page fully render
 
-            # Extract emails from fully loaded page
-            page_content = await page.content()
-            emails = extract_emails(page_content)
+            # Extract text content after JavaScript execution
+            page_text = await page.evaluate("document.body.innerText")
+            emails = extract_emails(page_text)
 
-            # If no emails, check pseudo-elements
+            # If no emails found, check pseudo-elements (::before & ::after)
             if not emails:
                 elements = await page.query_selector_all("p, span, a, div")
                 for element in elements:
@@ -180,7 +180,7 @@ async def fetch_emails_dynamic(url: str) -> List[str]:
                         )
                         main_text = await element.inner_text()
 
-                        # Remove extra quotes from pseudo-elements
+                        # Remove unnecessary quotes around pseudo-elements
                         before = before.strip('"') if before not in ['none', '""'] else ''
                         after = after.strip('"') if after not in ['none', '""'] else ''
 
@@ -192,7 +192,7 @@ async def fetch_emails_dynamic(url: str) -> List[str]:
 
             await browser.close()
 
-            # Remove duplicates and return
+            # Remove duplicates before returning
             emails = list(set(emails))
             if emails:
                 print(f"[INFO] Emails found (Dynamic): {emails}")
