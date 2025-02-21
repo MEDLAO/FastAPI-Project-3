@@ -4,10 +4,12 @@ beautifulsoup4==4.13.3
 certifi==2025.1.31
 cffi==1.17.1
 charset-normalizer==3.4.1
+click==8.1.8
 cryptography==44.0.1
 exceptiongroup==1.2.2
 fastapi==0.115.8
 greenlet==3.1.1
+h11==0.14.0
 idna==3.10
 lxml==5.3.1
 pdfminer.six==20231228
@@ -26,3 +28,4 @@ soupsieve==2.6
 starlette==0.45.3
 typing_extensions==4.12.2
 urllib3==2.3.0
+uvicorn==0.34.0
