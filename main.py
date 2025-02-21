@@ -163,8 +163,8 @@ async def fetch_emails_dynamic(url: str) -> List[str]:
             page = await context.new_page()
 
             print(f"[INFO] Fetching dynamic content: {url}")
-            await page.goto(url, wait_until="networkidle", timeout=5000)
-            await page.wait_for_timeout(1000)  # Let the page fully render
+            await page.goto(url, wait_until="networkidle", timeout=10000)
+            await page.wait_for_timeout(3000)  # Let the page fully render
 
             # Extract text content after JavaScript execution
             page_text = await page.evaluate("document.body.innerText")
