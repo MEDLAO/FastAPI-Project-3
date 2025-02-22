@@ -234,3 +234,53 @@ async def extract_emails_from_url(url: str = Query(..., description="URL of the 
         raise HTTPException(status_code=404, detail="No emails found.")
 
     return {"url": url, "emails": emails}
+
+
+def detect_shift(encoded_str):
+    """
+    Detects the most likely Caesar cipher shift used for obfuscation.
+    It checks which shift produces recognizable email patterns.
+    """
+    for shift in range(1, 10):  # Test shifts from 1 to 10
+        decoded_chars = [chr(ord(char) - shift) for char in encoded_str]
+        decoded_email = "".join(decoded_chars)
+
+        # Check if the decoded email contains common valid patterns
+        if "@" in decoded_email and (".fr" in decoded_email or ".com" in decoded_email or ".edu" in decoded_email):
+            return shift  # Return the detected shift value
+
+    return 0  # Return 0 if no valid shift is found (fallback)
+
+
+def decode_email(encoded_str):
+    """
+    Decodes an email obfuscated with an unknown shift.
+    - Automatically detects the shift.
+    - Applies necessary character replacements.
+    - Ensures `.` stays correct in domains.
+    """
+    shift = detect_shift(encoded_str)  # Detect the correct shift
+    if shift == 0:
+        return encoded_str  # Return as-is if no shift detected
+
+    # Reverse the detected shift
+    decoded_chars = [chr(ord(char) - shift) for char in encoded_str]
+    decoded_email = "".join(decoded_chars)
+
+    # Replace obfuscated characters with proper symbols
+    decoded_email = decoded_email.replace("[.", "@").replace("/", ".").replace("Z-", ".").replace("_", "-")
+
+    # Automatically detect and fix username issues
+    if "@" in decoded_email:
+        username, domain = decoded_email.split("@")
+
+        # If domain contains `.` and username has `.` but no `-`, assume `.` should be `-`
+        if "." in domain and "." in username and "-" not in username:
+            username = username.replace(".", "-")
+
+        decoded_email = f"{username}@{domain}"
+
+    # Remove unwanted `mailto*` prefixes if present
+    decoded_email = re.sub(r'^mailto\*', '', decoded_email)
+
+    return decoded_email
