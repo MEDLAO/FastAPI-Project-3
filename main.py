@@ -142,10 +142,12 @@ def fetch_emails_static(url: str) -> List[str]:
     text = soup.get_text(separator=" ")
     emails = extract_emails(text)
 
-    if emails:
-        print(f"[INFO] Emails found (Static): {emails}")
+    decoded_emails = list(extract_decoded_emails(soup))
+    all_emails = list(set(emails + decoded_emails))
+    if all_emails:
+        print(f"[INFO] Emails found (Static): {all_emails}")
 
-    return emails
+    return all_emails
 
 
 # If static fails, try Playwright (Dynamic scraping + pseudo-elements)
@@ -284,3 +286,27 @@ def decode_email(encoded_str):
     decoded_email = re.sub(r'^mailto\*', '', decoded_email)
 
     return decoded_email
+
+
+def extract_decoded_emails(soup_var):
+
+    encrypted_emails = set()
+
+    # 1. Extract standard mailto: links
+    for mailto_link in soup_var.find_all('a', href=True):
+        href = mailto_link['href']
+        if href.startswith('mailto:'):
+            email = href.replace('mailto:', '').strip()
+            encrypted_emails.add(email)
+
+    # 2. Extract obfuscated emails inside <a href="javascript:linkTo_UnCryptMailto('encoded_string')">
+    for a_tag in soup_var.find_all('a', href=True):
+        href = a_tag['href']
+        if "javascript:linkTo_UnCryptMailto" in href:
+            match = re.search(r"linkTo_UnCryptMailto\('([^']+)'\)", href)
+            if match:
+                encoded_str = match.group(1)
+                decoded_email = decode_email(encoded_str)
+                encrypted_emails.add(decoded_email)
+
+    return encrypted_emails
