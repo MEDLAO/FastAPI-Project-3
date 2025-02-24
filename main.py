@@ -1,3 +1,4 @@
+import html
 import re
 import io
 import random
@@ -31,24 +32,40 @@ def extract_emails(text: str):
     Extract email addresses from plain text using regex.
     Supports:
     - Standard emails (name@example.com)
-    - Hyphenated and numeric emails (sales-team-42@business.co.uk)
-    - Emails inside brackets (<support@domain.com>)
-    - Basic obfuscated emails (john[at]example[dot]com)
+    - Obfuscated emails using [at], (at), {dot}, etc.
+    - Obfuscations like "name at example dot com"
+    - Hexadecimal encoding of email addresses
+    - Reversed emails (moc.elpmaxe@eman)
     """
 
-    # Normalize text (fix brackets)
-    text = text.replace("<", " ").replace(">", " ").replace("[", " ").replace("]", " ")
+    # Decode HTML entities (for hex-encoded emails like &#110;&#97;...)
+    text = html.unescape(text)
 
-    # Standard email extraction
+    # Normalize text (fix brackets & spaces)
+    text = text.replace("<", " ").replace(">", " ")
+
+    # 1. Standard email extraction
     email_pattern = r"\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b"
     regex_emails = re.findall(email_pattern, text)
 
-    # Obfuscated emails: [at], (at), {dot}, etc.
+    # 2. Obfuscated emails: [at], (at), {dot}, etc.
     obfuscated_pattern = r"\b([a-zA-Z0-9._%+-]+)\s*(?:\[|\(|{)?at(?:\]|\)|})?\s*([a-zA-Z0-9.-]+)\s*(?:\[|\(|{)?dot(?:\]|\)|})?\s*([a-zA-Z]{2,})\b"
     obfuscated_emails = [f"{match[0]}@{match[1]}.{match[2]}" for match in re.findall(obfuscated_pattern, text)]
 
+    # 3. Obfuscated emails using `[@]`
+    alt_obfuscated_pattern = r"\b([a-zA-Z0-9._%+-]+)\s*\[@\]\s*([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b"
+    alt_obfuscated_emails = [f"{match[0]}@{match[1]}" for match in re.findall(alt_obfuscated_pattern, text)]
+
+    # 4. Emails written as `name at example dot com`
+    spaced_obfuscation_pattern = r"\b([a-zA-Z0-9._%+-]+)\s+at\s+([a-zA-Z0-9.-]+)\s+dot\s+([a-zA-Z]{2,})\b"
+    spaced_obfuscated_emails = [f"{match[0]}@{match[1]}.{match[2]}" for match in re.findall(spaced_obfuscation_pattern, text)]
+
+    # 5. Reversed emails (moc.elpmaxe@eman)
+    reversed_email_pattern = r"\b([a-zA-Z0-9._%+-]+)@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b"
+    reversed_emails = [f"{match[0][::-1]}@{match[1][::-1]}" for match in re.findall(reversed_email_pattern, text[::-1])]
+
     # Combine results and remove duplicates
-    emails = list(set(regex_emails + obfuscated_emails))
+    emails = list(set(regex_emails + obfuscated_emails + alt_obfuscated_emails + spaced_obfuscated_emails + reversed_emails))
     return emails
 
 
