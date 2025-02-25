@@ -225,12 +225,13 @@ async def fetch_emails_dynamic(url: str) -> List[str]:
         return []
 
 
-# Main function: Try static first, then Playwright if needed
+# Main function: Try static first, then dynamic, then full HTML
 async def fetch_emails(url: str) -> List[str]:
     """
     Orchestrates email extraction:
-    Tries static scraping (requests)
-    If static fails, tries dynamic scraping (Playwright)
+    1. Tries static scraping (requests)
+    2. If static fails, tries dynamic scraping (Playwright)
+    3. If dynamic fails, extracts emails from raw HTML text
     """
     emails = fetch_emails_static(url)
 
@@ -238,7 +239,15 @@ async def fetch_emails(url: str) -> List[str]:
         return emails  # Found emails with static scraping
 
     # If no emails, try Playwright (JavaScript + pseudo-elements)
-    return await fetch_emails_dynamic(url)
+    emails = await fetch_emails_dynamic(url)
+
+    if emails:
+        return emails  # Found emails with dynamic scraping
+
+    # If still no emails, fetch full HTML and extract from text
+    emails = fetch_emails_from_html(url)
+
+    return emails  # Return whatever emails are found
 
 
 @app.get("/extract-emails")
@@ -327,3 +336,49 @@ def extract_decoded_emails(soup_var):
                 encrypted_emails.add(decoded_email)
 
     return encrypted_emails
+
+
+def fetch_emails_from_html(url: str):
+    """
+    Fetches full HTML content from a dynamic page and extracts emails from raw text.
+    Uses Playwright to handle JavaScript-rendered content.
+    """
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context(
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            )
+            page = context.new_page()
+            print(f"[INFO] Fetching: {url}")
+
+            # Navigate to the page and wait for it to load completely
+            page.goto(url, wait_until="networkidle", timeout=20000)
+
+            # Scroll down to load dynamic content (if necessary)
+            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            page.wait_for_timeout(5000)
+
+            # Extract the full page HTML
+            html_content = page.content()
+            browser.close()
+
+        # Parse the HTML with BeautifulSoup
+        soup = BeautifulSoup(html_content, "html.parser")
+
+        # Convert entire HTML page to plain text
+        page_text = soup.get_text(separator=" ")
+
+        # Extract emails from the raw text
+        emails = extract_emails(page_text)
+
+        if emails:
+            print(f"[INFO] Emails extracted: {emails}")
+        else:
+            print("[INFO] No emails found in raw HTML.")
+
+        return emails
+
+    except Exception as e:
+        print(f"[ERROR] Playwright failed: {e}")
+        return []
