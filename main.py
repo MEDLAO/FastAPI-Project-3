@@ -185,7 +185,10 @@ def fetch_emails_static(url: str) -> List[str]:
     Returns emails if found, otherwise an empty list.
     """
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        "User-Agent": random.choice(USER_AGENTS),  # Rotate user-agent
+        "Accept-Language": "en-US,en;q=0.9",  # Mimic a real browser
+        "Referer": "https://www.google.com/",  # Make it look like you came from Google
+        "Connection": "keep-alive",  # Avoid quick blocking
     }
 
     try:
@@ -298,7 +301,7 @@ async def fetch_emails(url: str) -> List[str]:
         return emails  # Found emails with dynamic scraping
 
     # If still no emails, fetch full HTML and extract from text
-    emails = fetch_emails_from_html(url)
+    emails = await fetch_emails_from_html(url)
 
     return emails  # Return whatever emails are found
 
@@ -391,30 +394,30 @@ def extract_decoded_emails(soup_var):
     return encrypted_emails
 
 
-def fetch_emails_from_html(url: str):
+async def fetch_emails_from_html(url: str):
     """
     Fetches full HTML content from a dynamic page and extracts emails from raw text.
-    Uses Playwright to handle JavaScript-rendered content.
+    Uses Playwright to handle JavaScript-rendered content asynchronously.
     """
     try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            context = browser.new_context(
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            context = await browser.new_context(
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             )
-            page = context.new_page()
+            page = await context.new_page()
             print(f"[INFO] Fetching: {url}")
 
             # Navigate to the page and wait for it to load completely
-            page.goto(url, wait_until="networkidle", timeout=20000)
+            await page.goto(url, wait_until="networkidle", timeout=20000)
 
             # Scroll down to load dynamic content (if necessary)
-            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            page.wait_for_timeout(5000)
+            await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            await page.wait_for_timeout(5000)
 
             # Extract the full page HTML
-            html_content = page.content()
-            browser.close()
+            html_content = await page.content()
+            await browser.close()
 
         # Parse the HTML with BeautifulSoup
         soup = BeautifulSoup(html_content, "html.parser")
