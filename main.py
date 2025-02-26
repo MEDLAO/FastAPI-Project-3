@@ -349,30 +349,30 @@ def extract_decoded_emails(soup_var):
     return encrypted_emails
 
 
-async def fetch_emails_from_html(url: str):
+def fetch_emails_from_html(url: str):
     """
     Fetches full HTML content from a dynamic page and extracts emails from raw text.
     Uses Playwright to handle JavaScript-rendered content.
     """
     try:
-        async with async_playwright() as p:  # Use async_playwright()
-            browser = await p.chromium.launch(headless=True)  # Await browser launch
-            context = await browser.new_context(
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context(
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             )
-            page = await context.new_page()  # Await new page creation
+            page = context.new_page()
             print(f"[INFO] Fetching: {url}")
 
             # Navigate to the page and wait for it to load completely
-            await page.goto(url, wait_until="networkidle", timeout=20000)  # Await page navigation
+            page.goto(url, wait_until="networkidle", timeout=20000)
 
             # Scroll down to load dynamic content (if necessary)
-            await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")  # Await evaluate
-            await page.wait_for_timeout(5000)  # Await timeout
+            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            page.wait_for_timeout(5000)
 
             # Extract the full page HTML
-            html_content = await page.content()  # Await content extraction
-            await browser.close()  # Await browser close
+            html_content = page.content()
+            browser.close()
 
         # Parse the HTML with BeautifulSoup
         soup = BeautifulSoup(html_content, "html.parser")
