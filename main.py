@@ -151,30 +151,70 @@ async def extract_emails_from_file(file: UploadFile = File(...)):
     return {"filename": file.filename, "emails": emails}
 
 
-# Try fetching emails using requests (Static scraping)
+# # Try fetching emails using requests (Static scraping)
+# def fetch_emails_static(url: str) -> List[str]:
+#     """
+#     Fetches emails from a static webpage using requests and BeautifulSoup.
+#     Returns emails if found, otherwise an empty list.
+#     """
+#     headers = {"User-Agent":  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+#
+#     try:
+#         response = requests.get(url, headers=headers, timeout=5)
+#         response.raise_for_status()
+#     except requests.RequestException as e:
+#         print(f"[ERROR] Requests failed: {e}")
+#         return []
+#
+#     # Extract emails from raw text
+#     soup = BeautifulSoup(response.text, "html.parser")
+#     text = soup.get_text(separator=" ")
+#     emails = extract_emails(text)
+#
+#     decoded_emails = list(extract_decoded_emails(soup))
+#     all_emails = list(set(emails + decoded_emails))
+#     if all_emails:
+#         print(f"[INFO] Emails found (Static): {all_emails}")
+#
+#     return all_emails
+
+
 def fetch_emails_static(url: str) -> List[str]:
     """
     Fetches emails from a static webpage using requests and BeautifulSoup.
     Returns emails if found, otherwise an empty list.
     """
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
 
     try:
         response = requests.get(url, headers=headers, timeout=5)
         response.raise_for_status()
+        print("[DEBUG] First 500 characters of the page:\n", response.text[:500])
+
     except requests.RequestException as e:
         print(f"[ERROR] Requests failed: {e}")
         return []
 
-    # Extract emails from raw text
+    # Parse HTML with BeautifulSoup
     soup = BeautifulSoup(response.text, "html.parser")
+
+    # Extract emails from raw text
     text = soup.get_text(separator=" ")
     emails = extract_emails(text)
 
+    # Debug: Check what extract_decoded_emails() finds
     decoded_emails = list(extract_decoded_emails(soup))
+    print(f"[DEBUG] Extracted emails from extract_decoded_emails(): {decoded_emails}")
+
+    # Combine and remove duplicates
     all_emails = list(set(emails + decoded_emails))
+
     if all_emails:
         print(f"[INFO] Emails found (Static): {all_emails}")
+    else:
+        print("[INFO] No emails found.")
 
     return all_emails
 
