@@ -27,6 +27,15 @@ def get_random_user_agent():
     return random.choice(USER_AGENTS)
 
 
+# Define valid TLDs
+valid_tlds = {".com", ".org", ".net", ".fr", ".vn", ".edu", ".gov"}
+
+
+# Function to check if an email has a valid TLD
+def has_valid_tld(email):
+    return any(email.endswith(tld) for tld in valid_tlds)
+
+
 def extract_emails(text: str):
     """
     Extract email addresses from plain text using regex.
@@ -66,6 +75,8 @@ def extract_emails(text: str):
 
     # Combine results and remove duplicates
     emails = list(set(regex_emails + obfuscated_emails + alt_obfuscated_emails + spaced_obfuscated_emails + reversed_emails))
+    emails = [email for email in emails if has_valid_tld(email)]
+
     return emails
 
 
