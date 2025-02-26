@@ -11,6 +11,7 @@ from pydantic import BaseModel
 import pdfplumber
 import docx
 from typing import List
+import asyncio
 
 
 app = FastAPI()
@@ -244,7 +245,8 @@ async def fetch_emails(url: str) -> List[str]:
     2. If static fails, tries dynamic scraping (Playwright)
     3. If dynamic fails, extracts emails from raw HTML text
     """
-    emails = fetch_emails_static(url)
+    # emails = fetch_emails_static(url)
+    emails = await asyncio.to_thread(fetch_emails_static, url)  # Runs in a separate thread
 
     if emails:
         return emails  # Found emails with static scraping
