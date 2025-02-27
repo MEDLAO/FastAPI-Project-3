@@ -192,9 +192,9 @@ def fetch_emails_static(url: str) -> List[str]:
     }
 
     try:
-        response = requests.get(url, headers=headers, timeout=5)
+        response = requests.get(url, headers=headers, timeout=15)
         response.raise_for_status()
-        print("[DEBUG] First 500 characters of the page:\n", response.text[:500])
+        # print("[DEBUG] First 500 characters of the page:\n", response.text[:500])
 
     except requests.RequestException as e:
         print(f"[ERROR] Requests failed: {e}")
@@ -288,8 +288,8 @@ async def fetch_emails(url: str) -> List[str]:
     2. If static fails, tries dynamic scraping (Playwright)
     3. If dynamic fails, extracts emails from raw HTML text
     """
-    # emails = fetch_emails_static(url)
-    emails = fetch_emails_static(url)  # Runs in a separate thread
+
+    emails = fetch_emails_static(url)
 
     if emails:
         return emails  # Found emails with static scraping
