@@ -185,10 +185,18 @@ def fetch_emails_static(url: str) -> List[str]:
     Returns emails if found, otherwise an empty list.
     """
     headers = {
-        "User-Agent": random.choice(USER_AGENTS),  # Rotate user-agent
-        # "Accept-Language": "en-US,en;q=0.9",  # Mimic a real browser
-        # "Referer": "https://www.google.com/",  # Make it look like you came from Google
-        # "Connection": "keep-alive",  # Avoid quick blocking
+        "User-Agent": get_random_user_agent(),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Referer": "https://www.google.com/",
+        "Connection": "keep-alive",
+        "Upgrade-Insecure-Requests": "1",
+        "Cache-Control": "max-age=0",
+        "DNT": "1",  # Do Not Track request header
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-Dest": "document"
     }
 
     try:
