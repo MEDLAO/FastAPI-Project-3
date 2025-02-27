@@ -186,9 +186,9 @@ def fetch_emails_static(url: str) -> List[str]:
     """
     headers = {
         "User-Agent": random.choice(USER_AGENTS),  # Rotate user-agent
-        "Accept-Language": "en-US,en;q=0.9",  # Mimic a real browser
-        "Referer": "https://www.google.com/",  # Make it look like you came from Google
-        "Connection": "keep-alive",  # Avoid quick blocking
+        # "Accept-Language": "en-US,en;q=0.9",  # Mimic a real browser
+        # "Referer": "https://www.google.com/",  # Make it look like you came from Google
+        # "Connection": "keep-alive",  # Avoid quick blocking
     }
 
     try:
@@ -289,7 +289,7 @@ async def fetch_emails(url: str) -> List[str]:
     3. If dynamic fails, extracts emails from raw HTML text
     """
     # emails = fetch_emails_static(url)
-    emails = await asyncio.to_thread(fetch_emails_static, url)  # Runs in a separate thread
+    emails = fetch_emails_static(url)  # Runs in a separate thread
 
     if emails:
         return emails  # Found emails with static scraping
