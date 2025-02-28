@@ -38,12 +38,15 @@ def has_valid_tld(email):
 
 
 # Function to clean unwanted text after an email
-def clean_email(email):
+def clean_email(email: str) -> str:
     """
-    Removes any extra text after a valid email address (e.g., URLs, slashes, spaces, etc.).
+    Removes anything after the first valid TLD in the email.
     """
-    match = re.match(r"([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})", email)
-    return match.group(1) if match else email
+    for tld in valid_tlds:
+        if tld in email:
+            return email.split(tld, 1)[0] + tld  # Keep only up to the first valid TLD
+
+    return email  # Return original if no valid TLD found
 
 
 def extract_emails(text: str):
@@ -85,7 +88,7 @@ def extract_emails(text: str):
 
     # Combine results and remove duplicates
     emails = list(set(regex_emails + obfuscated_emails + alt_obfuscated_emails + spaced_obfuscated_emails + reversed_emails))
-    emails = [clean_email(email) for email in emails if has_valid_tld(email)]
+    emails = [email for email in emails if has_valid_tld(email)]
 
     return emails
 
