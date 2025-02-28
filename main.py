@@ -89,10 +89,14 @@ def extract_emails(text: str):
 
     # Combine results and remove duplicates
     emails = list(set(regex_emails + obfuscated_emails + alt_obfuscated_emails + spaced_obfuscated_emails + reversed_emails))
-    emails = [email for email in emails if has_valid_tld(email)]
-    emails = [clean_email(email) for email in emails]
+    # emails = [email for email in emails if has_valid_tld(email)]
+    # emails = [clean_email(email) for email in emails]
 
-    return emails
+    cleaned_emails = [clean_email(email) for email in emails]
+
+    final_emails = [email for email in cleaned_emails if has_valid_tld(email)]
+
+    return final_emails
 
 
 class TextRequest(BaseModel):
