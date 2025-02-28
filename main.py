@@ -37,6 +37,15 @@ def has_valid_tld(email):
     return any(email.endswith(tld) for tld in valid_tlds)
 
 
+# Function to clean unwanted text after an email
+def clean_email(email):
+    """
+    Removes any extra text after a valid email address (e.g., URLs, slashes, spaces, etc.).
+    """
+    match = re.match(r"([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})", email)
+    return match.group(1) if match else email
+
+
 def extract_emails(text: str):
     """
     Extract email addresses from plain text using regex.
@@ -76,7 +85,7 @@ def extract_emails(text: str):
 
     # Combine results and remove duplicates
     emails = list(set(regex_emails + obfuscated_emails + alt_obfuscated_emails + spaced_obfuscated_emails + reversed_emails))
-    emails = [email for email in emails if has_valid_tld(email)]
+    emails = [clean_email(email) for email in emails if has_valid_tld(email)]
 
     return emails
 
@@ -186,17 +195,6 @@ def fetch_emails_static(url: str) -> List[str]:
     """
     headers = {
         "User-Agent": get_random_user_agent(),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Referer": "https://www.google.com/",
-        "Connection": "keep-alive",
-        "Upgrade-Insecure-Requests": "1",
-        "Cache-Control": "max-age=0",
-        "DNT": "1",  # Do Not Track request header
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "none",
-        "Sec-Fetch-Dest": "document"
     }
 
     try:
