@@ -43,8 +43,9 @@ def clean_email(email: str) -> str:
     Removes anything after the first valid TLD in the email.
     """
     for tld in valid_tlds:
-        if tld in email:
-            return email.split(tld, 1)[0] + tld  # Keep only up to the first valid TLD
+        index = email.find(tld)
+        if index != -1:
+            return email[: index + len(tld)]  # Keep only up to the first valid TLD
 
     return email  # Return original if no valid TLD found
 
