@@ -29,7 +29,7 @@ def get_random_user_agent():
 
 
 # Define valid TLDs
-valid_tlds = {".com", ".org", ".net", ".fr", ".vn", ".edu", ".gov"}
+valid_tlds = {".com", ".org", ".net", ".fr", ".es", ".vn", ".edu", ".gov"}
 
 
 # Function to check if an email has a valid TLD
@@ -40,14 +40,16 @@ def has_valid_tld(email):
 # Function to clean unwanted text after an email
 def clean_email(email: str) -> str:
     """
-    Removes anything after the first valid TLD in the email.
+    Removes unwanted characters before and after the email.
+    - Strips leading/trailing spaces, symbols, and encoded characters like "%20".
+    - Extracts only the valid email portion.
     """
-    for tld in valid_tlds:
-        index = email.find(tld)
-        if index != -1:
-            return email[: index + len(tld)]  # Keep only up to the first valid TLD
 
-    return email  # Return original if no valid TLD found
+    # 1. Remove unwanted characters before/after using regex
+    match = re.search(r"([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})", email)
+
+    # 2. If a valid email is found, return the cleaned version
+    return match.group(1) if match else email
 
 
 def extract_emails(text: str):
