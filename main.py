@@ -389,7 +389,8 @@ def extract_decoded_emails(soup_var):
         href = mailto_link['href']
         if href.startswith('mailto:'):
             email = href.replace('mailto:', '').strip()
-            encrypted_emails.add(email)
+            cleaned_email = clean_email(email)
+            encrypted_emails.add(cleaned_email)
 
     # 2. Extract obfuscated emails inside <a href="javascript:linkTo_UnCryptMailto('encoded_string')">
     for a_tag in soup_var.find_all('a', href=True):
