@@ -172,34 +172,6 @@ async def extract_emails_from_file(file: UploadFile = File(...)):
     return {"filename": file.filename, "emails": emails}
 
 
-# # Try fetching emails using requests (Static scraping)
-# def fetch_emails_static(url: str) -> List[str]:
-#     """
-#     Fetches emails from a static webpage using requests and BeautifulSoup.
-#     Returns emails if found, otherwise an empty list.
-#     """
-#     headers = {"User-Agent":  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
-#
-#     try:
-#         response = requests.get(url, headers=headers, timeout=5)
-#         response.raise_for_status()
-#     except requests.RequestException as e:
-#         print(f"[ERROR] Requests failed: {e}")
-#         return []
-#
-#     # Extract emails from raw text
-#     soup = BeautifulSoup(response.text, "html.parser")
-#     text = soup.get_text(separator=" ")
-#     emails = extract_emails(text)
-#
-#     decoded_emails = list(extract_decoded_emails(soup))
-#     all_emails = list(set(emails + decoded_emails))
-#     if all_emails:
-#         print(f"[INFO] Emails found (Static): {all_emails}")
-#
-#     return all_emails
-
-
 def fetch_emails_static(url: str) -> List[str]:
     """
     Fetches emails from a static webpage using requests and BeautifulSoup.
@@ -320,6 +292,8 @@ async def fetch_emails(url: str) -> List[str]:
 
     # If still no emails, fetch full HTML and extract from text
     emails = await fetch_emails_from_html(url)
+
+    emails = [email for email in emails if "@" in email]
 
     return emails  # Return whatever emails are found
 
