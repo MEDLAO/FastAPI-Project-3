@@ -54,9 +54,8 @@ def clean_email(email: str) -> str:
     # 2. Extract only the valid email portion
     match = re.search(r"([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})", email)
 
-    # 3. Ensure a valid match is found and contains '@'
-    if match and "@" in match.group(1):
-        return match.group(1)
+    # 3. Return clean email if found, otherwise return empty string
+    return match.group(1) if match else ""
 
 
 def extract_emails(text: str):
