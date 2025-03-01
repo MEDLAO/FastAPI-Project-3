@@ -12,6 +12,7 @@ import pdfplumber
 import docx
 from typing import List
 import asyncio
+import urllib.parse
 
 
 app = FastAPI()
@@ -40,16 +41,23 @@ def has_valid_tld(email):
 # Function to clean unwanted text after an email
 def clean_email(email: str) -> str:
     """
-    Removes unwanted characters before and after the email.
-    - Strips leading/trailing spaces, symbols, and encoded characters like "%20".
-    - Extracts only the valid email portion.
+    Cleans an email by:
+    - Decoding URL-encoded characters (e.g., "%20" → " ")
+    - Extracting only the valid email portion (removing extra text before & after)
+    - Ensuring the result contains '@' to prevent false positives (e.g., URLs)
+    - Stripping unnecessary whitespace
     """
 
-    # 1. Remove unwanted characters before/after using regex
+    # 1. Decode URL-encoded characters (Fixes %20 issue)
+    email = urllib.parse.unquote(email).strip()
+
+    # 2. Extract only the valid email portion
     match = re.search(r"([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})", email)
 
-    # 2. If a valid email is found, return the cleaned version
-    return match.group(1) if match else email
+    # 3. Ensure the result contains '@' and return it
+    cleaned_email = match.group(1) if match else ""
+
+    return cleaned_email if "@" in cleaned_email else ""
 
 
 def extract_emails(text: str):
