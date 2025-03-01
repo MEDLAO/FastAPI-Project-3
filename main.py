@@ -293,7 +293,7 @@ async def fetch_emails(url: str) -> List[str]:
     # If still no emails, fetch full HTML and extract from text
     emails = await fetch_emails_from_html(url)
 
-    emails = [email for email in emails if "@" in email]
+    emails = [email for email in emails if email.strip() and "@" in email]
 
     return emails  # Return whatever emails are found
 
