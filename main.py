@@ -55,7 +55,7 @@ def clean_email(email: str) -> str:
     match = re.search(r"([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})", email)
 
     # 3. Return clean email if found, otherwise return empty string
-    return match.group(1) if match else ""
+    return match.group(1) if match else None
 
 
 def extract_emails(text: str):
@@ -293,7 +293,7 @@ async def fetch_emails(url: str) -> List[str]:
     # If still no emails, fetch full HTML and extract from text
     emails = await fetch_emails_from_html(url)
 
-    emails = [email for email in emails if email.strip() and "@" in email]
+    emails = [email.strip() for email in emails if email is not None and "@" in email]
 
     return emails  # Return whatever emails are found
 
