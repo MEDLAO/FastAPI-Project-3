@@ -45,7 +45,7 @@ def clean_email(email: str) -> str:
     - Decoding URL-encoded characters (e.g., "%20" → " ")
     - Extracting only the valid email portion (removing extra text before & after)
     - Ensuring the result contains '@' to prevent false positives (e.g., URLs)
-    - Stripping unnecessary whitespace
+    - Returning nothing if there is no valid email
     """
 
     # 1. Decode URL-encoded characters (Fixes %20 issue)
@@ -54,10 +54,8 @@ def clean_email(email: str) -> str:
     # 2. Extract only the valid email portion
     match = re.search(r"([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})", email)
 
-    # 3. Ensure the result contains '@' and return it
-    cleaned_email = match.group(1) if match else ""
-
-    return cleaned_email if "@" in cleaned_email else ""
+    # 3. Ensure a valid match is found and contains '@'
+    return match.group(1) if match and "@" in match.group(1) else None
 
 
 def extract_emails(text: str):
