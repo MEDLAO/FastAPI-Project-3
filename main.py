@@ -279,23 +279,19 @@ async def fetch_emails(url: str) -> List[str]:
     3. If dynamic fails, extracts emails from raw HTML text
     """
 
+    # Try static scraping first
     emails = fetch_emails_static(url)
 
-    if emails:
-        return emails  # Found emails with static scraping
+    # Try Playwright if no emails found
+    if not emails:
+        emails = await fetch_emails_dynamic(url)
 
-    # If no emails, try Playwright (JavaScript + pseudo-elements)
-    emails = await fetch_emails_dynamic(url)
+    # Try extracting from raw HTML if still no emails
+    if not emails:
+        emails = await fetch_emails_from_html(url)
 
-    if emails:
-        return emails  # Found emails with dynamic scraping
-
-    # If still no emails, fetch full HTML and extract from text
-    emails = await fetch_emails_from_html(url)
-
-    emails = [email.strip() for email in emails if email is not None and "@" in email]
-
-    return emails  # Return whatever emails are found
+    # Final Filtering: Remove None, empty strings, and invalid emails
+    return [email.strip() for email in emails if email and "@" in email]
 
 
 @app.get("/extract-emails")
