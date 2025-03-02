@@ -30,7 +30,17 @@ def get_random_user_agent():
 
 
 # Define valid TLDs
-valid_tlds = {".com", ".org", ".net", ".fr", ".es", ".vn", ".edu", ".gov"}
+valid_tlds = {
+    # Generic TLDs
+    ".com", ".org", ".net", ".edu", ".gov", ".mil", ".int", ".info", ".biz", ".xyz",
+    ".site", ".online", ".tech", ".store", ".app", ".blog", ".news", ".live", ".media",
+
+    # Most common country-code TLDs (ccTLDs)
+    ".us", ".ca", ".uk", ".fr", ".de", ".es", ".it", ".nl", ".se", ".no", ".fi", ".ru",
+    ".pl", ".au", ".cn", ".jp", ".kr", ".in", ".br", ".mx", ".za", ".ar", ".ch", ".be",
+    ".at", ".dk", ".pt", ".gr", ".ie", ".il", ".sg", ".hk", ".my", ".th", ".vn", ".id",
+    ".nz", ".tw", ".sa", ".ae", ".tr"
+}
 
 
 # Function to check if an email has a valid TLD
