@@ -5,13 +5,11 @@ import random
 from fastapi import FastAPI, File, UploadFile, HTTPException, Query
 import requests
 from bs4 import BeautifulSoup
-from playwright.sync_api import sync_playwright
 from playwright.async_api import async_playwright
 from pydantic import BaseModel
 import pdfplumber
 import docx
 from typing import List
-import asyncio
 import urllib.parse
 
 
