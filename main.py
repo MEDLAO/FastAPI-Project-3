@@ -1,8 +1,10 @@
+import os
 import html
 import re
 import io
 import random
-from fastapi import FastAPI, File, UploadFile, HTTPException, Query
+from fastapi import FastAPI, File, UploadFile, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 import requests
 from bs4 import BeautifulSoup
 from playwright.async_api import async_playwright
@@ -19,14 +21,14 @@ app = FastAPI()
 RAPIDAPI_SECRET = os.getenv("RAPIDAPI_SECRET")
 
 
-@app.middleware("http")
-async def enforce_rapidapi_usage(request: Request, call_next):
-    rapidapi_proxy_secret = request.headers.get("X-RapidAPI-Proxy-Secret")
-
-    if rapidapi_proxy_secret != RAPIDAPI_SECRET:
-        return JSONResponse(status_code=403, content={"error": "Access restricted to RapidAPI users only."})
-
-    return await call_next(request)
+# @app.middleware("http")
+# async def enforce_rapidapi_usage(request: Request, call_next):
+#     rapidapi_proxy_secret = request.headers.get("X-RapidAPI-Proxy-Secret")
+#
+#     if rapidapi_proxy_secret != RAPIDAPI_SECRET:
+#         return JSONResponse(status_code=403, content={"error": "Access restricted to RapidAPI users only."})
+#
+#     return await call_next(request)
 
 
 @app.get("/health")
