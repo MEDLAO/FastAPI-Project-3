@@ -23,8 +23,8 @@ RAPIDAPI_SECRET = os.getenv("RAPIDAPI_SECRET")
 
 @app.middleware("http")
 async def enforce_rapidapi_usage(request: Request, call_next):
-    # Bypass authentication for the /welcome endpoint
-    if request.url.path == "/":
+    # Allow "/" and "/health" to work without the header
+    if request.url.path in ["/", "/health"]:
         return await call_next(request)
 
     rapidapi_proxy_secret = request.headers.get("X-RapidAPI-Proxy-Secret")
